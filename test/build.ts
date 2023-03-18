@@ -1,13 +1,25 @@
 // @ts-nocheck
-const CC = declareExec("cc", {async: true});
+
+import { Subprocess } from "bun";
+
+const CC = declareExec("cc", {async: true, mode: "out-err"});
 const CFLAGS = ["-Wall", "-Wextra"];
 
-const test = async () => {
-    declareExec("./main", {async: true})(..."konkon kiitsune! watashi wa shirakami fubuki desu!".split(" "));
+const test = () => {
+    const main = declareExec("./main", {async: false, mode: "manual"});
+    const proc = main(..."konkon kiitsune! watashi wa shirakami fubuki desu!".split(" "));
+
+    console.write(proc.stdout);
 }
 
 async function build() {
     await CC(...getFiles("**/*.c"), ...CFLAGS, "-o", "main");
 }
 
-export {test, build};
+async function macka() {
+    const macka = declareExec("cat", {async: true, mode: "out", stdin: "inherit"});
+
+    macka();
+}
+
+export {test, build, macka};
