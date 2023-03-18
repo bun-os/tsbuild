@@ -1,33 +1,10 @@
 import { existsSync } from "fs";
+import { argv } from "process";
 
 interface declareExecConfig {
     async: boolean;
     cwd?: string;
-    env?: Record<string, string>;
-    stdin?:
-        | "pipe"
-        | "inherit"
-        | "ignore"
-        | ReadableStream
-        | Blob
-        | Response
-        | Request
-        | number
-        | null;
-    stdout?:
-        | "pipe"
-        | "inherit"
-        | "ignore"
-        | TypedArray
-        | DataView
-        | null;
-    stderr?:
-        | "pipe"
-        | "inherit"
-        | "ignore"
-        | TypedArray
-        | DataView
-        | null;
+    env?: object; 
 }
 
 // @ts-ignore ugh
@@ -36,14 +13,19 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false}
         console.error("PATH env variable was not found!");
         process.exit(1);
     }
-    const paths = process.env.PATH.split(":");
 
     let exists = false;
 
-    paths.forEach((path: string) => {
-        const file = path + "/" + exec;
-        if (existsSync(file)) exists = true;
-    });
+    if (!(exec.startsWith("/") || exec.startsWith("."))) {
+        const paths = process.env.PATH.split(":");
+
+        paths.forEach((path: string) => {
+            const file = path + "/" + exec;
+            if (existsSync(file)) exists = true;
+        });
+    } else {
+        if (existsSync(exec)) exists = true;
+    }
 
     if (!exists) {
         console.error(`Could not find "${exec}" in PATH`);
@@ -56,12 +38,16 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false}
                 cwd: opts.cwd ?? process.cwd(),
                 // @ts-ignore bun docs
                 env: opts.env ?? {...process.env},
-                stdin: opts.stdin ?? null,
-                stdout: opts.stdout ?? "pipe",
-                stderr: opts.stderr ?? "inherit"
             });
-            if (proc.stdout) console.write(proc.stdout!.toString());
-            if (proc.stderr) console.write(proc.stderr!.toString());
+
+            if (proc.stdout) {
+                console.write(proc.stdout);
+            }
+
+            if (proc.stderr) {
+                console.write(proc.stderr);
+            }
+
             if (proc.exitCode != 0) {
                 console.error(`Process "${exec} ${args.join(" ")}" has exited with code ${proc.exitCode}`);
                 process.exit(proc.exitCode);
@@ -79,13 +65,25 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false}
                 cwd: opts.cwd ?? process.cwd(),
                 // @ts-ignore bun docs
                 env: opts.env ?? {...process.env},
-                stdin: opts.stdin ?? null,
-                stdout: opts.stdout ?? "pipe",
-                stderr: opts.stderr ?? "inherit"
             });
-            if (proc.stdout) for await (const chunk of proc.stdout) console.write(new TextDecoder().decode(chunk));
-            if (proc.stderr) for await (const chunk of proc.stderr) console.write(new TextDecoder().decode(chunk)); 
+            if (proc.stdout) for await (const chunk of proc.stdout) console.write(chunk);
+            if (proc.stderr) for await (const chunk of proc.stderr) console.write(chunk); 
         }
 }
 
-require(`${process.cwd()}/build.ts`);
+const mod = require(`${process.cwd()}/build.ts`);
+
+argv.shift()
+argv.shift()
+
+for (const fun of process.argv) {
+    let res: any = null;
+    const func = mod[fun];
+    if (!func) {
+        console.error(`Unknown target "${fun}"`);
+        process.exit(1);
+    }
+
+    res = func();
+    if (res?.then) await res;
+}
