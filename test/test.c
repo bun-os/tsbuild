@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+extern void bun();
+
 int main(int argc, char *argv[])
 {
     int forgotten = 1;
@@ -10,5 +12,7 @@ int main(int argc, char *argv[])
         printf("%s ", argv[i]);
     }
     putchar(10);
+
+    bun();
     return 0;
 }

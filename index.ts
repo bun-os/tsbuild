@@ -1,3 +1,4 @@
+import { globSync } from 'glob';
 import { existsSync } from "fs";
 import { argv } from "process";
 
@@ -70,6 +71,9 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false}
             if (proc.stderr) for await (const chunk of proc.stderr) console.write(chunk); 
         }
 }
+
+// @ts-ignore ugh
+globalThis.getFiles = (pattern: string) => globSync(pattern);
 
 const mod = require(`${process.cwd()}/build.ts`);
 

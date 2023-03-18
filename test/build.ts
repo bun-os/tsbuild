@@ -7,7 +7,7 @@ const test = async () => {
 }
 
 async function build() {
-    await CC("test.c", ...CFLAGS, "-o", "main");
+    await CC(...getFiles("**/*.c"), ...CFLAGS, "-o", "main");
 }
 
 export {test, build};
