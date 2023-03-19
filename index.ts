@@ -2,7 +2,7 @@
 
 import { globSync } from 'glob'
 import { existsSync } from "fs";
-import { argv, stdout } from "process";
+import { argv, exit, stdout } from "process";
 import { Subprocess } from 'bun';
 
 interface declareExecConfig {
@@ -10,6 +10,7 @@ interface declareExecConfig {
     cwd?: string;
     env?: object;
     mode?: "out-err" | "out" | "err" | "manual" | "manual-piped";
+    die?: boolean;
     stdin?: string | number | Blob | Request | Response | ReadableStream | Function | null | "inherit" | "pipe" | "ignore";
     stdout?: "inherit" | "pipe" | "ignore" | Blob | TypedArray | DataView | null;
     stderr?: "inherit" | "pipe" | "ignore" | Blob | TypedArray | DataView | null;
@@ -102,8 +103,10 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
             }
 
             if (proc.exitCode != 0) {
-                console.error(`Process "${exec} ${args.join(" ")}" has exited with code ${proc.exitCode}`);
-                process.exit(proc.exitCode);
+                if (opts.die == undefined || opts.die) {
+                    console.error(`Process "${exec} ${args.join(" ")}" has exited with code ${proc.exitCode}`);
+                    process.exit(proc.exitCode);
+                }
             }
 
             if (opts.mode == "manual") return proc;
@@ -121,8 +124,10 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
             const proc: TSBuildSubprocess = Bun.spawn([exec, ...args], {
                 onExit(..._) {
                     if (proc.exitCode != 0 && proc.exitCode != null) {
-                        console.error(`Process "${exec} ${args.join(" ")}" has exited with code ${proc.exitCode}`);
-                        process.exit(proc.exitCode ?? 1);
+                        if (opts.die == undefined || opts.die) {
+                            console.error(`Process "${exec} ${args.join(" ")}" has exited with code ${proc.exitCode}`);
+                            process.exit(proc.exitCode ?? 1);
+                        }
                     }
                 },
                 cwd: opts.cwd ?? process.cwd(),
@@ -191,7 +196,93 @@ globalThis.fetchFile = async (url: string) => {
     return res;
 }
 
-const mod = require(`${process.cwd()}/build.ts`);
+// @ts-ignore ugh
+globalThis.$ = (env: string, value: string | null = null) => {
+    if (value)
+        process.env[env] = value
+    else
+        return process.env[env]
+}
+
+// @ts-ignore ugh
+globalThis.TSBUILD = async (...args) => {
+    if (args.length < 2) {
+        console.error("TSBUILD doesn't have enough args!");
+        process.exit(1);
+    }
+    if (existsSync(args[0])) {
+        const cwd = process.cwd();
+        const buildName = args[0]
+        console.log(`Entering "${cwd}/${buildName}"`);
+        process.chdir(args[0]);
+        let mod;
+        try {
+            mod = require(`${process.cwd()}/build.ts`);
+        } catch (e: any) {
+            if (!e.toString().includes("Cannot find module")) {
+                console.log(e);
+            } else {
+                console.error("No \"build.ts\" found. Bailing out!");
+            }
+            process.exit(1);
+        }
+
+        args.shift();
+        for (const fun of args) {
+            let res: any = null;
+            const func = mod[fun];
+            if (!func) {
+                console.error(`Unknown target "${fun}"`);
+                process.exit(1);
+            }
+
+            res = func();
+            if (res?.then) await res;
+        }
+        console.log(`Leaving "${cwd}/${buildName}"`);
+        process.chdir("..");
+    }
+}
+
+let mod;
+
+try {
+    mod = require(`${process.cwd()}/build.ts`);
+} catch (e: any) {
+    if (!e.toString().includes("Cannot find module")) {
+        console.log(e);
+    } else {
+        console.error("No \"build.ts\" found. Bailing out!");
+    }
+    process.exit(1);
+}
+
+if (argv.length == 2) {
+    if (mod["help"] instanceof Function) {
+        mod["help"]();
+    } else {
+        console.log("Usage: tsbuild [options] [target]\n");
+        console.log("Options:")
+        console.log("  -v, --version\t\tshows current version");
+        const targets = [];
+
+        for (const fun in mod) {
+            if (mod[fun] instanceof Function) {
+                targets.push(fun);
+            }
+        }
+
+        if (targets.length > 0) {
+            console.log("\nNo \"help\" target found, but found these targets:\n");
+            targets.forEach(t => console.log(t));
+        }
+    }
+}
+
+if (argv.includes("-v") || argv.includes("--version")) {
+    console.log("tsbuild version: " + require("./package.json").version);
+    process.exit(0);
+}
 
 argv.shift()
 argv.shift()

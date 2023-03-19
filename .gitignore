@@ -1,2 +1,4 @@
 node_modules/
 bun.lockb
+test/kernel/linux/
+test/busybox/busybox/
