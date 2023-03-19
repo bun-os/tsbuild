@@ -1,3 +1,5 @@
+#!/usr/bin/env bun
+
 import { globSync } from 'glob'
 import { existsSync } from "fs";
 import { argv, stdout } from "process";

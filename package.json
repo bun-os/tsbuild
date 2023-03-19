@@ -9,6 +9,6 @@
         "glob": "^9.3.0"
     },
     "bin": {
-        "tsbuild": "index.ts"
+        "tsbuild": "./index.ts"
     }
 }
