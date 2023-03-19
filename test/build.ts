@@ -17,7 +17,12 @@ async function build() {
 }
 
 async function macka() {
-    const macka = declareExec("cat", {async: true, mode: "out", stdin: "inherit"});
+    const macka = declareExec("cat", {async: true, mode: "out", stdin: () => {
+        const res = prompt("Cat >");
+        if (res)
+            return res + "\n";
+        return null;
+    }});
 
     macka();
 }

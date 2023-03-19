@@ -1,12 +1,13 @@
 import { globSync } from 'glob'
 import { existsSync } from "fs";
 import { argv } from "process";
+import { Subprocess } from 'bun';
 
 interface declareExecConfig {
     async: boolean;
     cwd?: string;
     env?: object;
-    mode?: "out-err" | "out" | "err" | "manual";
+    mode?: "out-err" | "out" | "err" | "manual" | "manual-piped";
     stdin?: string | number | Blob | Request | Response | ReadableStream | Function | null | "inherit" | "pipe" | "ignore";
 }
 
@@ -32,6 +33,11 @@ const prePipe = (opts: declareExecConfig) => {
     }
 
     return null;
+}
+
+interface TSBuildSubprocess extends Subprocess {
+    stdoutReader?: ReadableStreamDefaultReader;
+    stderrReader?: ReadableStreamDefaultReader;
 }
 
 // @ts-ignore ugh
@@ -99,12 +105,16 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
     else
         return async (...args: string[]) => {
             let pip: null | string | Response | Request | Blob | ReadableStream = prePipe(opts);
+            const oldMode = opts.mode;
 
-            if (opts.stdin instanceof Function) pip = "pipe";
+            if (opts.stdin instanceof Function) {
+                pip = "pipe";
+                opts.mode = "manual-piped";
+            }
 
-            const proc = Bun.spawn([exec, ...args], {
+            const proc: TSBuildSubprocess = Bun.spawn([exec, ...args], {
                 onExit(..._) {
-                    if (proc.exitCode != 0) {
+                    if (proc.exitCode != 0 && proc.exitCode != null) {
                         console.error(`Process "${exec} ${args.join(" ")}" has exited with code ${proc.exitCode}`);
                         process.exit(proc.exitCode ?? 1);
                     }
@@ -113,16 +123,26 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
                 // @ts-ignore bun docs
                 env: opts.env ?? {...process.env},
                 // @ts-ignore it works fine
-                stdin: pip
+                stdin: pip,
+                stderr: "pipe"
             });
 
+            // @ts-ignore what is your problem?
             if (proc.stdout && ["out-err", "out"].includes(opts.mode ?? "")) for await (const chunk of proc.stdout) console.write(chunk);
             if (proc.stderr && ["out-err", "err"].includes(opts.mode ?? "")) for await (const chunk of proc.stderr) console.write(chunk);
 
+            if (opts.mode == "manual-piped") {
+                // @ts-ignore it is
+                proc.stderrReader = proc.stderr.getReader(); 
+                // @ts-ignore it is
+                proc.stdoutReader = proc.stdout.getReader();
+                opts.mode = oldMode;
+            }
+
             if (opts.stdin instanceof Function) {
-                const funcPipeHandle = async () => {
+                while (true) {
                     // @ts-ignore it is a function
-                    let res = opts.stdin(proc);
+                    let res = opts.stdin();
                     if (res?.then) res = await res;
 
                     if (res) {
@@ -133,12 +153,21 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
                             // @ts-ignore bun docs idk
                             proc.stdin!.flush();
                         }
-                        funcPipeHandle();
-                    }
-                    // @ts-ignore bun docs
-                    // proc.stdin!.end();
+
+                        if (proc.stdoutReader && ["out-err", "out"].includes(opts.mode ?? "")) {
+                            const {value: output, done} = await proc.stdoutReader.read();
+                            if (done) break;
+                            console.write(output);
+                        }
+
+                        if (proc.stderrReader && ["out-err", "err"].includes(opts.mode ?? "")) {
+                            const {value: output, done} = await proc.stderrReader.read();
+                            if (done) break;
+                            console.write(output);
+                        }
+                    } else break;
                 }
-                funcPipeHandle();
+                proc.kill();
             }
 
             if (opts.mode == "manual") return proc;
