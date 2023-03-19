@@ -1,6 +1,6 @@
 import { globSync } from 'glob'
 import { existsSync } from "fs";
-import { argv } from "process";
+import { argv, stdout } from "process";
 import { Subprocess } from 'bun';
 
 interface declareExecConfig {
@@ -9,6 +9,8 @@ interface declareExecConfig {
     env?: object;
     mode?: "out-err" | "out" | "err" | "manual" | "manual-piped";
     stdin?: string | number | Blob | Request | Response | ReadableStream | Function | null | "inherit" | "pipe" | "ignore";
+    stdout?: "inherit" | "pipe" | "ignore" | Blob | TypedArray | DataView | null;
+    stderr?: "inherit" | "pipe" | "ignore" | Blob | TypedArray | DataView | null;
 }
 
 const prePipe = (opts: declareExecConfig) => {
@@ -84,7 +86,9 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
                 // @ts-ignore bun docs
                 env: opts.env ?? {...process.env},
                 // @ts-ignore it works fine
-                stdin: pip
+                stdin: pip,
+                stdout: opts.stdout ?? "pipe",
+                stderr: opts.stderr ?? "pipe"
             });
 
             if (proc.stdout && ["out-err", "out"].includes(opts.mode ?? "")) {
@@ -124,7 +128,8 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
                 env: opts.env ?? {...process.env},
                 // @ts-ignore it works fine
                 stdin: pip,
-                stderr: "pipe"
+                stderr: opts.stderr ?? "pipe",
+                stdout: opts.stdout ?? "pipe"
             });
 
             // @ts-ignore what is your problem?
@@ -176,6 +181,13 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
 
 // @ts-ignore ugh
 globalThis.getFiles = (pattern: string) => globSync(pattern);
+
+// @ts-ignore ugh
+globalThis.fetchFile = async (url: string) => {
+    const req = await fetch(url);
+    const res = await req.blob();
+    return res;
+}
 
 const mod = require(`${process.cwd()}/build.ts`);
 
