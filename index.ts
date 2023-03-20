@@ -2,10 +2,10 @@
 
 import { globSync } from 'glob'
 import { existsSync } from "fs";
-import { Subprocess } from 'bun';
+import { Subprocess, SyncSubprocess } from 'bun';
 
 declare global {
-    type execFunc = (...args: string[]) => TSBuildSubprocess | undefined;
+    type execFunc = (...args: string[]) => SyncSubprocess | undefined;
     type asyncExecFunc = (...args: string[]) => Promise<TSBuildSubprocess | undefined>;
 
     interface TSBuildSubprocess extends Subprocess {
@@ -24,7 +24,7 @@ declare global {
         stderr?: "inherit" | "pipe" | "ignore" | Blob | TypedArray | DataView | null;
     }
 
-    function declareExec(exec: string, opts: declareExecConfig): execFunc | asyncExecFunc
+    function declareExec(exec: string, opts?: declareExecConfig): execFunc | asyncExecFunc
     function getFiles(pattern: string): string[]
     function fetchFile(url: string): Promise<Blob>
     function $(env: string, value: string | null): string | undefined
@@ -55,8 +55,8 @@ const prePipe = (opts: declareExecConfig) => {
     return null;
 }
 
-// @ts-ignore ugh
-globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false, mode: "out-err"}) => {
+
+globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false, mode: "out-err"}): execFunc | asyncExecFunc => {
     if (!process.env.PATH) {
         console.error("PATH env variable was not found!");
         process.exit(1);
@@ -81,7 +81,7 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
     }
 
     if (!opts.async)
-        return (...args: string[]) => {
+        return (...args: string[]): SyncSubprocess | undefined => {
             let pip: null | string | Response | Request | Blob | ReadableStream = prePipe(opts);
             
             if (opts.stdin instanceof Function) {
@@ -100,7 +100,9 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
                 env: opts.env ?? {...process.env},
                 // @ts-ignore it works fine
                 stdin: pip,
+                // @ts-ignore bun docs
                 stdout: opts.stdout ?? "pipe",
+                // @ts-ignore bun docs
                 stderr: opts.stderr ?? "pipe"
             });
 
@@ -145,7 +147,9 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
                 env: opts.env ?? {...process.env},
                 // @ts-ignore it works fine
                 stdin: pip,
+                // @ts-ignore bun docs
                 stderr: opts.stderr ?? "pipe",
+                // @ts-ignore bun docs
                 stdout: opts.stdout ?? "pipe"
             });
 
@@ -196,17 +200,14 @@ globalThis.declareExec = (exec: string, opts: declareExecConfig = {async: false,
         }
 }
 
-// @ts-ignore ugh
 globalThis.getFiles = (pattern: string) => globSync(pattern);
 
-// @ts-ignore ugh
 globalThis.fetchFile = async (url: string) => {
     const req = await fetch(url);
     const res = await req.blob();
     return res;
 }
 
-// @ts-ignore ugh
 globalThis.$ = (env: string, value: string | null = null) => {
     if (value)
         process.env[env] = value
@@ -214,8 +215,7 @@ globalThis.$ = (env: string, value: string | null = null) => {
         return process.env[env]
 }
 
-// @ts-ignore ugh
-globalThis.TSBUILD = async (...args) => {
+globalThis.TSBUILD = async (...args): Promise<any> => {
     if (args.length < 2) {
         console.error("TSBUILD doesn't have enough args!");
         process.exit(1);

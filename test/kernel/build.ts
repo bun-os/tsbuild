@@ -1,4 +1,4 @@
-import { appendFileSync, copyFileSync, existsSync } from "fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync } from "fs";
 import { cpus } from "os";
 
 const KERNEL_VERSION = "5.18.7";
@@ -61,7 +61,7 @@ async function build() {
 
         console.log("Building bzImage");
 
-        make("bzImage", `-j${cpus().length}`);
+        make(`-j${cpus().length}`);
 
         copyFileSync("arch/x86/boot/bzImage", "../bzImage");
 
@@ -71,4 +71,24 @@ async function build() {
     }
 }
 
-export {prepare, config, build};
+async function modules() {
+    if (existsSync("linux")) {
+        process.chdir("linux");
+
+        console.log("Bundling modules");
+
+        $("INSTALL_MOD_PATH", "./_modules/");
+
+        if (!existsSync("_modules")) mkdirSync("_modules");
+        make("modules_install");
+
+        process.chdir("_modules");
+
+        await tar("-cf", "../../modules.tar", ...getFiles("**/*"));
+
+        process.chdir("../..");
+        console.log("Finished bundling modules");
+    }
+}
+
+export {prepare, config, build, modules};
