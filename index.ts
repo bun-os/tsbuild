@@ -2,18 +2,33 @@
 
 import { globSync } from 'glob'
 import { existsSync } from "fs";
-import { argv, exit, stdout } from "process";
 import { Subprocess } from 'bun';
 
-interface declareExecConfig {
-    async: boolean;
-    cwd?: string;
-    env?: object;
-    mode?: "out-err" | "out" | "err" | "manual" | "manual-piped";
-    die?: boolean;
-    stdin?: string | number | Blob | Request | Response | ReadableStream | Function | null | "inherit" | "pipe" | "ignore";
-    stdout?: "inherit" | "pipe" | "ignore" | Blob | TypedArray | DataView | null;
-    stderr?: "inherit" | "pipe" | "ignore" | Blob | TypedArray | DataView | null;
+declare global {
+    type execFunc = (...args: string[]) => TSBuildSubprocess | undefined;
+    type asyncExecFunc = (...args: string[]) => Promise<TSBuildSubprocess | undefined>;
+
+    interface TSBuildSubprocess extends Subprocess {
+        stdoutReader?: ReadableStreamDefaultReader;
+        stderrReader?: ReadableStreamDefaultReader;
+    }
+
+    interface declareExecConfig {
+        async: boolean;
+        cwd?: string;
+        env?: object;
+        mode?: "out-err" | "out" | "err" | "manual" | "manual-piped";
+        die?: boolean;
+        stdin?: string | number | Blob | Request | Response | ReadableStream | Function | null | "inherit" | "pipe" | "ignore";
+        stdout?: "inherit" | "pipe" | "ignore" | Blob | TypedArray | DataView | null;
+        stderr?: "inherit" | "pipe" | "ignore" | Blob | TypedArray | DataView | null;
+    }
+
+    function declareExec(exec: string, opts: declareExecConfig): execFunc | asyncExecFunc
+    function getFiles(pattern: string): string[]
+    function fetchFile(url: string): Promise<Blob>
+    function $(env: string, value: string | null): string | undefined
+    function TSBUILD(...args: string[]): Promise<undefined>
 }
 
 const prePipe = (opts: declareExecConfig) => {
@@ -38,11 +53,6 @@ const prePipe = (opts: declareExecConfig) => {
     }
 
     return null;
-}
-
-interface TSBuildSubprocess extends Subprocess {
-    stdoutReader?: ReadableStreamDefaultReader;
-    stderrReader?: ReadableStreamDefaultReader;
 }
 
 // @ts-ignore ugh
@@ -257,7 +267,7 @@ try {
     process.exit(1);
 }
 
-if (argv.length == 2) {
+if (process.argv.length == 2) {
     if (mod["help"] instanceof Function) {
         mod["help"]();
     } else {
@@ -279,13 +289,13 @@ if (argv.length == 2) {
     }
 }
 
-if (argv.includes("-v") || argv.includes("--version")) {
+if (process.argv.includes("-v") || process.argv.includes("--version")) {
     console.log("tsbuild version: " + require("./package.json").version);
     process.exit(0);
 }
 
-argv.shift()
-argv.shift()
+process.argv.shift();
+process.argv.shift();
 
 for (const fun of process.argv) {
     let res: any = null;

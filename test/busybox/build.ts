@@ -1,12 +1,10 @@
-// @ts-nocheck
-
 import { existsSync, unlinkSync } from "node:fs";
 import { cpus } from "node:os";
 
 const BUSYBOX_VERSION="1.35.0";
 const tar = declareExec("tar", {async: true, mode: "out-err"});
 const mv = declareExec("mv", {async: true, mode: "out-err"});
-const make = declareExec("make", {asnyc: true, mode: "manual", stdout: "inherit", stderr: "inherit"});
+const make = declareExec("make", {async: false, mode: "manual", stdout: "inherit", stderr: "inherit"});
 const sed = declareExec("sed", {async: true, mode: "out-err"});
 
 
@@ -28,7 +26,7 @@ async function config() {
     if (existsSync("busybox")) {
         process.chdir("busybox");
 
-        await make("defconfig");
+        make("defconfig");
         await sed("-i", "s/.*CONFIG_STATIC.*/CONFIG_STATIC=y\\\\n/", ".config");
 
         process.chdir("..");
@@ -52,7 +50,7 @@ async function rootfs() {
     if (existsSync("busybox")) {
         process.chdir("busybox");
 
-        await make("install");
+        make("install");
         process.chdir("_install");
 
         unlinkSync("./linuxrc");

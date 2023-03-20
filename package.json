@@ -11,5 +11,6 @@
     },
     "bin": {
         "tsbuild": "./index.ts"
-    }
+    },
+    "types": "./types/index.d.ts"
 }

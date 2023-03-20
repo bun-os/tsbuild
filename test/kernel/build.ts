@@ -1,12 +1,10 @@
-// @ts-nocheck
-
 import { appendFileSync, copyFileSync, existsSync } from "fs";
 import { cpus } from "os";
 
 const KERNEL_VERSION = "5.18.7";
 const tar = declareExec("tar", {async: true, mode: "out-err"});
 const mv = declareExec("mv", {async: true, mode: "out-err"});
-const make = declareExec("make", {asnyc: true, mode: "manual", stdout: "inherit", stderr: "inherit"});
+const make = declareExec("make", {async: false, mode: "manual", stdout: "inherit", stderr: "inherit"});
 const sed = declareExec("sed", {async: true, mode: "out-err"});
 
 async function prepare() {
@@ -28,7 +26,7 @@ async function config() {
         process.chdir("linux");
 
         console.log("Preparing kernel");
-        await make("defconfig");
+        make("defconfig");
 
         await sed("-i", "s/.*CONFIG_DEFAULT_HOSTNAME.*/CONFIG_DEFAULT_HOSTNAME=\"BunOS\"/", ".config");
         await sed("-i", "s/.*CONFIG_OVERLAY_FS.*/CONFIG_OVERLAY_FS=y/", ".config");
@@ -63,8 +61,7 @@ async function build() {
 
         console.log("Building bzImage");
 
-        let res = make("bzImage", `-j${cpus().length}`);
-        if (res?.then) await res;
+        make("bzImage", `-j${cpus().length}`);
 
         copyFileSync("arch/x86/boot/bzImage", "../bzImage");
 
