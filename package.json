@@ -15,5 +15,8 @@
     },
     "types": "./index.ts",
     "homepage": "https://github.com/bun-os/tsbuild",
-    "license": "ISC"
+    "license": "ISC",
+    "publishConfig": {
+        "access": "public"
+    }
 }
