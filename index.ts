@@ -254,57 +254,66 @@ globalThis.TSBUILD = async (...args): Promise<any> => {
     }
 }
 
-let mod;
+const main = async (args: string[] = []) => {
+    args = [...process.argv, ...args]
+    let mod;
 
-try {
-    mod = require(`${process.cwd()}/build.ts`);
-} catch (e: any) {
-    if (!e.toString().includes("Cannot find module")) {
-        console.log(e);
-    } else {
-        console.error("No \"build.ts\" found. Bailing out!");
-    }
-    process.exit(1);
-}
-
-if (process.argv.length == 2) {
-    if (mod["help"] instanceof Function) {
-        mod["help"]();
-    } else {
-        console.log("Usage: tsbuild [options] [target]\n");
-        console.log("Options:")
-        console.log("  -v, --version\t\tshows current version");
-        const targets = [];
-
-        for (const fun in mod) {
-            if (mod[fun] instanceof Function) {
-                targets.push(fun);
-            }
+    try {
+        mod = require(`${process.cwd()}/build.ts`);
+    } catch (e: any) {
+        if (!e.toString().includes("Cannot find module")) {
+            console.log(e);
+        } else {
+            console.error("No \"build.ts\" found. Bailing out!");
         }
-
-        if (targets.length > 0) {
-            console.log("\nNo \"help\" target found, but found these targets:\n");
-            targets.forEach(t => console.log(t));
-        }
-    }
-}
-
-if (process.argv.includes("-v") || process.argv.includes("--version")) {
-    console.log("tsbuild version: " + require("./package.json").version);
-    process.exit(0);
-}
-
-process.argv.shift();
-process.argv.shift();
-
-for (const fun of process.argv) {
-    let res: any = null;
-    const func = mod[fun];
-    if (!func) {
-        console.error(`Unknown target "${fun}"`);
         process.exit(1);
     }
 
-    res = func();
-    if (res?.then) await res;
+    if (args.length == 2) {
+        if (mod["help"] instanceof Function) {
+            mod["help"]();
+        } else {
+            console.log("Usage: tsbuild [options] [target]\n");
+            console.log("Options:")
+            console.log("  -v, --version\t\tshows current version");
+            const targets = [];
+
+            for (const fun in mod) {
+                if (mod[fun] instanceof Function) {
+                    targets.push(fun);
+                }
+            }
+
+            if (targets.length > 0) {
+                console.log("\nNo \"help\" target found, but found these targets:\n");
+                targets.forEach(t => console.log(t));
+            }
+        }
+    }
+
+    if (args.includes("-v") || args.includes("--version")) {
+        console.log("tsbuild version: " + require("./package.json").version);
+        process.exit(0);
+    }
+
+    args.shift();
+    args.shift();
+
+    for (const fun of args) {
+        let res: any = null;
+        const func = mod[fun];
+        if (!func) {
+            console.error(`Unknown target "${fun}"`);
+            process.exit(1);
+        }
+
+        res = func();
+        if (res?.then) await res;
+    }
 }
+
+if (Bun.main == import.meta.path) {
+    main()
+}
+
+export { main, declareExec, $, TSBUILD, getFiles, fetchFile, type execFunc, type asyncExecFunc, type TSBuildSubprocess, type declareExecConfig };
