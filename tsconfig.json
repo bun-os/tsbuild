@@ -18,8 +18,6 @@
         "types": [
             "bun-types"
         ],
-        "declaration": true,
-        "declarationDir": "./types",
-        "typeRoots": ["types/index.d.ts"]
+        "declaration": true
     }
 }

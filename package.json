@@ -3,6 +3,7 @@
     "module": "index.ts",
     "type": "module",
     "version": "0.0.1",
+    "description": "tsbuild is custom build system made for bunos to help build software with ease",
     "devDependencies": {
         "bun-types": "^0.5.0"
     },
@@ -12,5 +13,7 @@
     "bin": {
         "tsbuild": "./index.ts"
     },
-    "types": "./types/index.d.ts"
+    "types": "./index.ts",
+    "homepage": "https://github.com/bun-os/tsbuild",
+    "license": "ISC"
 }
