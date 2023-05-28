@@ -1,0 +1,7 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:base", "group:allNonMajor"],
+  "includeForks": true,
+  "dependencyDashboard": true,
+  "schedule": ["every weekend"]
+}
